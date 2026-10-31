@@ -9,7 +9,6 @@ function environment(overrides = {}) {
     ALLOWED_ORIGIN: origin,
     GEMINI_API_KEY: "test-key",
     GEMINI_MODEL: "test-model",
-    BETA_ACCESS_CODES: "private-code",
     MAX_LOOKUPS_PER_DAY: "10",
     QUOTA: {
       idFromName(name) { return name; },
@@ -30,7 +29,6 @@ function lookupRequest(body, requestOrigin = origin) {
 const validLookup = {
   medicineName: "Example medicine",
   activeIngredient: "Example ingredient",
-  accessCode: "private-code",
   confirmedIngredient: true,
   strength: '500 mg',
   dosageForm: 'Tablet',
@@ -49,10 +47,17 @@ test("requires package-confirmed active ingredient details", async () => {
   assert.equal((await response.json()).status, 'needs_confirmation');
 });
 
-test("does not call label or AI providers for an invalid beta code", async () => {
-  const response = await worker.fetch(lookupRequest({ ...validLookup, accessCode: "wrong-code" }), environment());
-  assert.equal(response.status, 401);
-  assert.match((await response.json()).error, /access code/i);
+test("does not require an access code", async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async url => {
+    assert.match(String(url), /api\.fda\.gov/);
+    return Response.json({ results: [] });
+  };
+  try {
+    const response = await worker.fetch(lookupRequest(validLookup), environment());
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).status, "unsupported");
+  } finally { globalThis.fetch = realFetch; }
 });
 
 test("returns clarification when no verified label can be found", async () => {
