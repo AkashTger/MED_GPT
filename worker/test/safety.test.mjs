@@ -5,7 +5,7 @@ import { selectLabel, validateEvidence } from '../src/safety.js';
 import { Quota } from '../src/quota.js';
 
 const origin = 'https://example.github.io';
-const lookup = { medicineName: 'Example brand', activeIngredient: 'Paracetamol', strength: '500 mg', dosageForm: 'Tablet', accessCode: 'test-code', confirmedIngredient: true };
+const lookup = { medicineName: 'Example brand', activeIngredient: 'Paracetamol', strength: '500 mg', dosageForm: 'Tablet', confirmedIngredient: true };
 const record = {
   set_id: '12345678-1234-1234-1234-123456789abc', effective_time: '20260101',
   openfda: { generic_name: ['ACETAMINOPHEN'], substance_name: ['ACETAMINOPHEN'], route: ['ORAL'], brand_name: ['Test label'] },
@@ -13,7 +13,7 @@ const record = {
   purpose: ['Temporarily relieves minor aches and pains.'], warnings: ['Do not use with another medicine containing acetaminophen.'],
 };
 const section = { id: 'uses', title: 'Uses', content: 'Relieves minor aches and pains.', field: 'purpose', quote: record.purpose[0] };
-const environment = () => ({ ALLOWED_ORIGIN: origin, GEMINI_API_KEY: 'fake-key', GEMINI_MODEL: 'test-model', BETA_ACCESS_CODES: 'test-code', QUOTA: { idFromName: x => x, get: () => ({ fetch: async () => Response.json({ allowed: true }) }) } });
+const environment = () => ({ ALLOWED_ORIGIN: origin, GEMINI_API_KEY: 'fake-key', GEMINI_MODEL: 'test-model', QUOTA: { idFromName: x => x, get: () => ({ fetch: async () => Response.json({ allowed: true }) }) } });
 const request = (body = lookup) => new Request('https://api.example/api/lookup', { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 
 test('matches paracetamol alias to single-ingredient acetaminophen label', () => assert.equal(selectLabel([record], lookup), record));
@@ -53,7 +53,7 @@ test('chat gets a structured Gemini overview without a FDA label lookup', async 
     }) }] } }] });
   };
   try {
-    const chat = new Request('https://api.example/api/chat', { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'What is cetirizine?', accessCode: 'test-code' }) });
+    const chat = new Request('https://api.example/api/chat', { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'What is cetirizine?' }) });
     const response = await worker.fetch(chat, environment());
     assert.equal(response.status, 200);
     assert.equal((await response.json()).status, 'general');
@@ -117,9 +117,9 @@ test('transactional quota enforces code, IP and global caps', async () => {
   const storage = { get: async key => structuredClone(values.get(key)), put: async (key, value) => values.set(key, structuredClone(value)) };
   storage.transaction = fn => { const next = queue.then(() => fn(storage)); queue = next.catch(() => {}); return next; };
   const quota = new Quota({ storage });
-  const consume = async (code, ip) => (await (await quota.fetch(new Request('https://quota', { method: 'POST', body: JSON.stringify({ code, ip, limit: 2, globalLimit: 3 }) }))).json()).allowed;
-  const concurrent = await Promise.all([consume('a', 'one'), consume('a', 'two'), consume('a', 'three')]);
+  const consume = async ip => (await (await quota.fetch(new Request('https://quota', { method: 'POST', body: JSON.stringify({ ip, limit: 2, globalLimit: 3 }) }))).json()).allowed;
+  const concurrent = await Promise.all([consume('one'), consume('one'), consume('one')]);
   assert.equal(concurrent.filter(Boolean).length, 2);
-  assert.equal(await consume('b', 'one'), true);
-  assert.equal(await consume('c', 'four'), false);
+  assert.equal(await consume('two'), true);
+  assert.equal(await consume('three'), false);
 });
