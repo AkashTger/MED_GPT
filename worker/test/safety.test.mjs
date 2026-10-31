@@ -17,6 +17,15 @@ const environment = () => ({ ALLOWED_ORIGIN: origin, GEMINI_API_KEY: 'fake-key',
 const request = (body = lookup) => new Request('https://api.example/api/lookup', { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 
 test('matches paracetamol alias to single-ingredient acetaminophen label', () => assert.equal(selectLabel([record], lookup), record));
+test('matches cetirizine to a single-ingredient cetirizine hydrochloride label', () => {
+  const cetirizine = {
+    ...record,
+    openfda: { ...record.openfda, generic_name: ['CETIRIZINE HYDROCHLORIDE'], substance_name: ['CETIRIZINE HYDROCHLORIDE'] },
+    active_ingredient: ['Cetirizine hydrochloride 10 mg in each tablet'],
+  };
+  assert.equal(selectLabel([cetirizine], { ...lookup, activeIngredient: 'Cetirizine', strength: '10 mg' }), cetirizine);
+});
+
 test('rejects combination, wrong route, strength, and release variants', () => {
   for (const changed of [
     { openfda: { ...record.openfda, substance_name: ['ACETAMINOPHEN', 'CAFFEINE'] } },
