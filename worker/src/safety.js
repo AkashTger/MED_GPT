@@ -7,6 +7,14 @@ export const fieldsBySection = {
 };
 export const critical = new Set(['dosage', 'how_to_take', 'food', 'side_effects', 'precautions']);
 export const normalize = text => text.trim().toLowerCase().replace(/\s+/g, ' ').replace(/^paracetamol$/, 'acetaminophen');
+const ingredientNames = {
+  cetirizine: new Set(['cetirizine', 'cetirizine hydrochloride', 'cetirizine hcl']),
+};
+
+function matchesIngredient(value, name) {
+  const accepted = ingredientNames[name] || new Set([name]);
+  return accepted.has(normalize(value));
+}
 
 export function selectLabel(records, lookup) {
   const name = normalize(lookup.activeIngredient);
@@ -19,7 +27,7 @@ export function selectLabel(records, lookup) {
     const route = record.openfda?.route || [];
     const active = (record.active_ingredient || []).join(' ');
     const formText = [...(record.dosage_forms_and_strengths || []), ...(record.description || []), active, ...(record.dosage_and_administration || [])].join(' ');
-    return generic.some(x => normalize(x) === name) && ingredients.length === 1 && normalize(ingredients[0]) === name && route.includes('ORAL') &&
+    return generic.some(x => matchesIngredient(x, name)) && ingredients.length === 1 && matchesIngredient(ingredients[0], name) && route.includes('ORAL') &&
       strengthPattern.test(active) && new RegExp(`\\b${lookup.dosageForm}s?\\b`, 'i').test(formText) &&
       !/extended.release|delayed.release|sustained.release|modified.release|enteric.coated/i.test(formText);
   }).sort((a, b) => String(b.effective_time || '').localeCompare(String(a.effective_time || '')))[0] || null;
