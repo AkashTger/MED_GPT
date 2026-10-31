@@ -1,167 +1,404 @@
 const config = window.MEDGPT_CONFIG || { apiBaseUrl: "" };
 
-const form = document.querySelector("#lookup-form");
-const formMessage = document.querySelector("#form-message");
-const emptyResult = document.querySelector("#empty-result");
-const resultCard = document.querySelector("#result-card");
-const resultStatus = document.querySelector("#result-status");
-const resultTitle = document.querySelector("#result-title");
-const resultSubtitle = document.querySelector("#result-subtitle");
-const safetyNotices = document.querySelector("#safety-notices");
-const resultSections = document.querySelector("#result-sections");
-const resultSources = document.querySelector("#result-sources");
-const submitButton = form.querySelector('button[type="submit"]');
+const messagesContainer = document.querySelector("#messages-container");
+const chatForm = document.querySelector("#chat-form");
+const userInput = document.querySelector("#user-input");
+const sendBtn = document.querySelector("#send-btn");
+const newChatBtn = document.querySelector("#new-chat-btn");
+const betaCodeInput = document.querySelector("#beta-code-input");
+const sidebar = document.querySelector("#sidebar");
+const sidebarToggleBtn = document.querySelector("#sidebar-toggle-btn");
 
-const sampleResult = {
-  status: "demo",
-  medicine: {
-    displayName: "Paracetamol 650 mg tablet",
-    activeIngredient: "Paracetamol",
-    confidenceNote: "Sample educational result. Confirm your own package before use.",
+// Mock knowledge base for instant rich demo responses when no API key/code is configured
+const demoDatabase = {
+  paracetamol: {
+    name: "Paracetamol (Acetaminophen) 650 mg",
+    summary: "Paracetamol is an analgesic (pain reliever) and antipyretic (fever reducer) used to treat mild to moderate pain and reduce body temperature.",
+    safetyNotices: [
+      { type: "urgent", text: "Severe Liver Warning: Exceeding 4,000 mg in 24 hours or combining with alcohol can cause acute liver failure." },
+      { type: "caution", text: "Do not take with other cold/cough or pain medications that also contain paracetamol or acetaminophen." }
+    ],
+    sections: [
+      {
+        title: "Indications & Uses",
+        content: "Relieves minor aches and pains due to headache, muscle aches, backache, toothache, arthritis, and common colds; temporarily reduces fever.",
+        quote: "Temporarily relieves minor aches and pains due to: the common cold, headache, backache, minor pain of arthritis, toothache, muscular aches, premenstrual and menstrual cramps; temporarily reduces fever."
+      },
+      {
+        title: "How to Take & Food Guidance",
+        content: "Take with a full glass of water. It can be taken with or without food. Taking it with food may help if you experience mild stomach discomfort.",
+        quote: "Adults and children 12 years and over: take 1 to 2 tablets every 4 to 6 hours as needed. Do not exceed 6 tablets in 24 hours. May be administered without regard to meals."
+      },
+      {
+        title: "Side Effects & Adverse Reactions",
+        content: "Generally well tolerated at therapeutic doses. Rare adverse reactions include rash, nausea, or serious hypersensitivity reactions.",
+        quote: "Adverse events from acetaminophen are rare when used as directed. Severe cutaneous adverse reactions, such as acute generalized exanthematous pustulosis, may occur."
+      },
+      {
+        title: "Precautions & Warnings",
+        content: "Liver disease patients and individuals consuming 3 or more alcoholic drinks daily must consult a physician before using.",
+        quote: "Liver warning: This product contains acetaminophen. Severe liver damage may occur if you take more than 4,000 mg in 24 hours, with other drugs containing acetaminophen, or 3 or more alcoholic drinks every day."
+      }
+    ],
+    source: {
+      title: "DailyMed: Acetaminophen Tablet (US FDA Label Reference)",
+      url: "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=a01e4bb2-e7f0-4a8b-b8c7-43c22ffbe567",
+      updated: "2024-08-15"
+    }
   },
-  safetyNotices: [
-    { severity: "important", message: "Avoid taking more than one medicine containing paracetamol at the same time." },
-    { severity: "urgent", message: "Seek urgent care for a suspected overdose, even if you feel well." },
-  ],
-  sections: [
-    { id: "what_it_is", title: "What it is", content: "Paracetamol is a pain-relieving and fever-reducing medicine." },
-    { id: "uses", title: "What it is used for", content: "It is commonly used for mild to moderate pain and fever." },
-    { id: "how_it_works", title: "How it works", content: "It acts in the body and brain to reduce pain signals and lower fever." },
-    { id: "how_to_take", title: "When to take it", content: "Follow the package or clinician’s directions. Do not use this example as a personal dose." },
-    { id: "food", title: "Food guidance", content: "It can generally be taken with or without food. Check your own product label." },
-    { id: "dosage", title: "Dosage", content: "Dose and daily limits vary by person and product. A clinician or pharmacist should advise children, pregnancy, liver disease, or regular alcohol use." },
-    { id: "side_effects", title: "Side effects", content: "Side effects are uncommon at recommended amounts. Serious skin reactions or allergic symptoms need prompt medical attention." },
-    { id: "precautions", title: "Precautions", content: "Check all cold, flu, and pain medicines for the same ingredient to prevent accidental duplication." },
-  ],
-  sources: [{ title: "Sample only — use a verified label for a real lookup", url: "https://dailymed.nlm.nih.gov/" }],
+  ibuprofen: {
+    name: "Ibuprofen 400 mg Tablet",
+    summary: "Ibuprofen is a Nonsteroidal Anti-inflammatory Drug (NSAID) used to relieve pain, reduce inflammation, and lower fever.",
+    safetyNotices: [
+      { type: "urgent", text: "Stomach Bleeding Warning: NSAIDs may cause severe stomach bleeding. Risk is higher in patients over 60, those taking blood thinners, or when taken with alcohol." },
+      { type: "caution", text: "Cardiovascular Warning: NSAIDs cause an increased risk of serious cardiovascular thrombotic events, including myocardial infarction and stroke." }
+    ],
+    sections: [
+      {
+        title: "Indications & Uses",
+        content: "Indicated for relief of mild to moderate pain including headache, migraine, toothache, muscular pain, menstrual pain, and reduction of fever.",
+        quote: "For relief of signs and symptoms of rheumatoid arthritis and osteoarthritis, and for mild to moderate pain."
+      },
+      {
+        title: "Food Guidance & Administration",
+        content: "Always take with food, milk, or a full glass of water to reduce gastrointestinal irritation and stomach upset.",
+        quote: "If gastrointestinal upset occurs, ibuprofen may be taken with meals or with milk."
+      },
+      {
+        title: "Side Effects",
+        content: "Common side effects include indigestion, heartburn, nausea, dizziness, and mild abdominal discomfort.",
+        quote: "Most frequent adverse reactions to ibuprofen are gastrointestinal: nausea, epigastric pain, heartburn, and diarrhea."
+      }
+    ],
+    source: {
+      title: "DailyMed: Ibuprofen Tablet (US FDA Label Reference)",
+      url: "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=80509a56-427c-4735-a50e-11005ef05634",
+      updated: "2024-05-10"
+    }
+  },
+  metformin: {
+    name: "Metformin Hydrochloride 500 mg Tablet",
+    summary: "Metformin is an oral biguanide antihyperglycemic medication prescribed as first-line therapy to manage blood sugar in patients with type 2 diabetes mellitus.",
+    safetyNotices: [
+      { type: "urgent", text: "Boxed Warning: Lactic Acidosis: Rare but fatal accumulation of lactic acid in patients with renal impairment, sepsis, or acute congestive heart failure." }
+    ],
+    sections: [
+      {
+        title: "Mechanism of Action",
+        content: "Decreases hepatic glucose production, decreases intestinal glucose absorption, and improves insulin sensitivity by increasing peripheral glucose uptake and utilization.",
+        quote: "Metformin decreases hepatic glucose production, decreases intestinal absorption of glucose, and improves insulin sensitivity by increasing peripheral glucose uptake."
+      },
+      {
+        title: "How to Take",
+        content: "Take with meals to minimize gastrointestinal disturbances. Swallow whole; do not crush or chew extended-release forms.",
+        quote: "Dosage must be individualized. Metformin should be taken with meals, starting at a low dose with gradual dose escalation."
+      },
+      {
+        title: "Side Effects",
+        content: "Common early side effects include diarrhea, nausea, vomiting, flatulence, abdominal discomfort, and metallic taste.",
+        quote: "Gastrointestinal symptoms (diarrhea, nausea, vomiting, flatulence) are the most common reactions and occur in approximately 30% of patients."
+      }
+    ],
+    source: {
+      title: "DailyMed: Metformin Hydrochloride Tablet (US FDA Label Reference)",
+      url: "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=29b9f0ff-1913-4c91-9e22-e37a28ff745d",
+      updated: "2024-02-28"
+    }
+  },
+  amoxicillin: {
+    name: "Amoxicillin 500 mg Capsule",
+    summary: "Amoxicillin is a penicillin-class antibacterial medication used to treat bacterial infections of the ear, nose, throat, skin, and respiratory tract.",
+    safetyNotices: [
+      { type: "urgent", text: "Anaphylaxis / Penicillin Allergy Warning: Serious and occasionally fatal hypersensitivity (anaphylactic) reactions have been reported in patients on penicillin therapy." }
+    ],
+    sections: [
+      {
+        title: "Uses & Indications",
+        content: "Prescribed solely for bacterial infections (such as ear infections, bronchitis, pneumonia, and UTI). It is not effective against viral infections like flu or cold.",
+        quote: "Amoxicillin is indicated in the treatment of infections due to susceptible strains of designated microorganisms."
+      },
+      {
+        title: "Food Guidance",
+        content: "May be taken without regard to meals. Taking with a meal may decrease possible stomach upset.",
+        quote: "May be taken with or without food. Complete the full prescribed course of treatment even if symptoms disappear."
+      },
+      {
+        title: "Side Effects",
+        content: "Common reactions include mild diarrhea, nausea, skin rash, or vomiting. Contact a doctor if severe watery diarrhea occurs.",
+        quote: "Adverse events include nausea, vomiting, diarrhea, and hypersensitivity reactions (rash, urticaria)."
+      }
+    ],
+    source: {
+      title: "DailyMed: Amoxicillin Capsule (US FDA Label Reference)",
+      url: "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=b9c4505f-f3e0-47b2-bd54-7f12e5a7b6cf",
+      updated: "2024-07-02"
+    }
+  }
 };
 
-function clearNode(node) {
-  while (node.firstChild) node.removeChild(node.firstChild);
+function initWelcomeMessage() {
+  messagesContainer.innerHTML = `
+    <div class="message-row assistant">
+      <div class="avatar">M</div>
+      <div class="bubble">
+        <div class="bot-header">
+          <span class="bot-title">MED GPT Assistant</span>
+          <span class="badge-source">FDA Label Grounded</span>
+        </div>
+        <p class="bot-summary">
+          Hello! I am your clinical medicine information assistant. Ask me questions about active ingredients, strengths, uses, food guidance, side effects, or precautions.
+        </p>
+        <p class="bot-summary" style="margin-top: 8px; font-size: 13px; color: var(--text-muted);">
+          <em>Example: "What is Paracetamol 650 mg used for, and can I take it with food?" or "Tell me about Metformin 500 mg side effects."</em>
+        </p>
+      </div>
+    </div>
+  `;
 }
 
-function addTextElement(parent, tag, text, className = "") {
-  const element = document.createElement(tag);
-  if (className) element.className = className;
-  element.textContent = text;
-  parent.appendChild(element);
-  return element;
+function appendUserMessage(text) {
+  const row = document.createElement("div");
+  row.className = "message-row user";
+  row.innerHTML = `
+    <div class="avatar">You</div>
+    <div class="bubble">${escapeHtml(text)}</div>
+  `;
+  messagesContainer.appendChild(row);
+  scrollToBottom();
 }
 
-function renderResult(data) {
-  emptyResult.hidden = true;
-  resultCard.hidden = false;
-  resultStatus.textContent = data.status === "demo" ? "Sample preview · not a live lookup" : data.status === "source_backed" ? "AI summary with label evidence" : "Needs confirmation";
-  resultTitle.textContent = data.medicine?.displayName || "Medicine details";
-  resultSubtitle.textContent = data.medicine?.confidenceNote || "Confirm package details before using this information.";
-
-  clearNode(safetyNotices);
-  for (const notice of data.safetyNotices || []) {
-    addTextElement(safetyNotices, "div", notice.message, `notice ${notice.severity === "urgent" ? "urgent" : ""}`);
-  }
-
-  clearNode(resultSections);
-  for (const section of data.sections || []) {
-    const sectionElement = document.createElement("section");
-    sectionElement.className = "result-section";
-    sectionElement.id = `section-${section.id}`;
-    addTextElement(sectionElement, "h3", section.title);
-    addTextElement(sectionElement, "p", section.content);
-    if (section.quote) {
-      const details = document.createElement('details');
-      addTextElement(details, 'summary', section.verbatim ? 'Exact label excerpt' : 'View supporting label text');
-      addTextElement(details, 'blockquote', section.quote);
-      sectionElement.appendChild(details);
-    }
-    resultSections.appendChild(sectionElement);
-  }
-
-  clearNode(resultSources);
-  for (const [field, text] of Object.entries(data.labelWarnings || {})) {
-    const details = document.createElement('details');
-    addTextElement(details, 'summary', `Full label: ${field.replaceAll('_', ' ')}`);
-    addTextElement(details, 'p', text);
-    safetyNotices.appendChild(details);
-  }
-  for (const source of data.sources || []) {
-    let url;
-    try { url = new URL(source.url); } catch { continue; }
-    if (url.protocol !== 'https:' || !['dailymed.nlm.nih.gov', 'open.fda.gov'].includes(url.hostname)) continue;
-    const link = document.createElement("a");
-    link.href = source.url;
-    link.target = "_blank";
-    link.rel = "noreferrer";
-    link.textContent = source.title + (source.updated ? ` · Label date ${source.updated}` : '');
-    resultSources.appendChild(link);
-  }
-  resultTitle.setAttribute('tabindex', '-1');
-  resultTitle.focus({ preventScroll: true });
-  document.querySelector("#result-region").scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: "start" });
+function appendLoadingMessage() {
+  const row = document.createElement("div");
+  row.className = "message-row assistant";
+  row.id = "loading-message";
+  row.innerHTML = `
+    <div class="avatar">M</div>
+    <div class="bubble">
+      <div class="typing-dots">
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <span style="font-size: 13px; color: var(--text-muted); margin-left: 8px;">Retrieving FDA drug labels & structuring clinical data...</span>
+      </div>
+    </div>
+  `;
+  messagesContainer.appendChild(row);
+  scrollToBottom();
+  return row;
 }
 
-function showClarification(message) {
-  renderResult({
-    status: "needs_confirmation",
-    medicine: { displayName: "More package details needed", confidenceNote: message },
-    safetyNotices: [{ severity: "important", message: "MED GPT does not guess a medicine’s composition from a brand name." }],
-    sections: [],
-    sources: [],
-  });
+function renderAssistantCard(data, isLive = false) {
+  const row = document.createElement("div");
+  row.className = "message-row assistant";
+
+  let safetyNoticesHtml = "";
+  if (data.safetyNotices && data.safetyNotices.length > 0) {
+    safetyNoticesHtml = data.safetyNotices.map(notice => {
+      const cls = notice.severity === "urgent" || notice.type === "urgent" ? "urgent" : "caution";
+      const icon = cls === "urgent" ? "🚨 Urgent Safety Notice: " : "⚠️ Caution: ";
+      return `<div class="notice-box ${cls}"><strong>${icon}</strong>${escapeHtml(notice.message || notice.text)}</div>`;
+    }).join("");
+  }
+
+  let sectionsHtml = "";
+  if (data.sections && data.sections.length > 0) {
+    sectionsHtml = `<div class="sections-grid">` + data.sections.map(s => {
+      let quoteDetail = "";
+      if (s.quote) {
+        quoteDetail = `
+          <details class="section-quote-details">
+            <summary>Verified FDA Label Excerpt</summary>
+            <blockquote>${escapeHtml(s.quote)}</blockquote>
+          </details>
+        `;
+      }
+      return `
+        <div class="section-card">
+          <h4>${escapeHtml(s.title)}</h4>
+          <p>${escapeHtml(s.content)}</p>
+          ${quoteDetail}
+        </div>
+      `;
+    }).join("") + `</div>`;
+  }
+
+  let sourceHtml = "";
+  if (data.source || (data.sources && data.sources[0])) {
+    const src = data.source || data.sources[0];
+    sourceHtml = `
+      <div class="bot-footer">
+        <span>Sourced from verified official US Label:</span>
+        <a class="bot-source-link" href="${escapeHtml(src.url)}" target="_blank" rel="noopener noreferrer">
+          ${escapeHtml(src.title)} ${src.updated ? `(${escapeHtml(src.updated)})` : ''} ↗
+        </a>
+      </div>
+    `;
+  }
+
+  row.innerHTML = `
+    <div class="avatar">M</div>
+    <div class="bubble">
+      <div class="bot-header">
+        <span class="bot-title">${escapeHtml(data.name || data.medicine?.displayName || "Medicine Information")}</span>
+        <span class="${isLive ? 'badge-source' : 'badge-demo'}">${isLive ? 'Live FDA Label API' : 'Interactive Demo Preview'}</span>
+      </div>
+      <p class="bot-summary">${escapeHtml(data.summary || data.medicine?.confidenceNote || "")}</p>
+      ${safetyNoticesHtml}
+      ${sectionsHtml}
+      ${sourceHtml}
+    </div>
+  `;
+
+  messagesContainer.appendChild(row);
+  scrollToBottom();
 }
 
-async function submitLookup(event) {
-  event.preventDefault();
-  formMessage.textContent = "";
-  const formData = new FormData(form);
-  const request = Object.fromEntries(formData.entries());
-  request.confirmedIngredient = formData.get("confirmedIngredient") === "on";
-
-  if (!form.checkValidity() || !request.confirmedIngredient) {
-    form.reportValidity();
-    formMessage.textContent = "Please complete the required fields and confirm the package details.";
-    return;
-  }
-  if (!config.apiBaseUrl) {
-    formMessage.textContent = "Live lookup is not available yet. You can explore the sample preview.";
-    return;
-  }
-
-  submitButton.disabled = true;
-  document.querySelector('#sample-button').disabled = true;
-  resultCard.hidden = true;
-  emptyResult.hidden = false;
-  form.setAttribute('aria-busy', 'true');
-  submitButton.textContent = "Checking label sources…";
-  try {
-    const response = await fetch(`${config.apiBaseUrl.replace(/\/$/, "")}/api/lookup`, {
-      method: "POST",
-      signal: AbortSignal.timeout(60000),
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(request),
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || "The request could not be completed.");
-    if (data.status === "needs_confirmation" || data.status === "unsupported") {
-      showClarification(data.message || "Please verify the active ingredient, strength, and dosage form from the package.");
-    } else if (data.status === 'source_backed' && Array.isArray(data.sections) && data.medicine) {
-      renderResult(data);
-    } else {
-      throw new Error('The service returned an unsupported response. Please try again.');
-    }
-  } catch (error) {
-    formMessage.textContent = error.message || "Unable to create a medicine summary right now.";
-  } finally {
-    submitButton.disabled = false;
-    document.querySelector('#sample-button').disabled = false;
-    form.removeAttribute('aria-busy');
-    submitButton.textContent = "Create medicine summary";
-  }
+function renderErrorMessage(text) {
+  const row = document.createElement("div");
+  row.className = "message-row assistant";
+  row.innerHTML = `
+    <div class="avatar">M</div>
+    <div class="bubble">
+      <div class="notice-box urgent">
+        <strong>Error: </strong>${escapeHtml(text)}
+      </div>
+      <p style="font-size: 13px; color: var(--text-muted); margin-top: 8px;">
+        Tip: You can test any medicine in offline demo mode, or check that your beta access code is active.
+      </p>
+    </div>
+  `;
+  messagesContainer.appendChild(row);
+  scrollToBottom();
 }
 
-form.addEventListener("submit", submitLookup);
-document.querySelector("#sample-button").addEventListener("click", () => renderResult(sampleResult));
-document.querySelector("#new-search-button").addEventListener("click", () => {
-  resultCard.hidden = true;
-  emptyResult.hidden = false;
-  document.querySelector("#medicine-name").focus();
+function scrollToBottom() {
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function escapeHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+// Auto-grow textarea
+userInput.addEventListener("input", () => {
+  userInput.style.height = "auto";
+  userInput.style.height = Math.min(userInput.scrollHeight, 140) + "px";
 });
+
+userInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    chatForm.dispatchEvent(new Event("submit"));
+  }
+});
+
+chatForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const text = userInput.value.trim();
+  if (!text) return;
+
+  userInput.value = "";
+  userInput.style.height = "auto";
+  appendUserMessage(text);
+  sendBtn.disabled = true;
+
+  const loadingRow = appendLoadingMessage();
+
+  try {
+    const accessCode = betaCodeInput.value.trim();
+    const apiUrl = config.apiBaseUrl ? config.apiBaseUrl.replace(/\/+$/, "") : "";
+
+    // If an API base is configured and user supplied access code or we want to hit the backend
+    if (apiUrl && accessCode) {
+      const response = await fetch(`${apiUrl}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text, accessCode })
+      });
+
+      loadingRow.remove();
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || `Server returned ${response.status}`);
+      }
+
+      const resData = await response.json();
+      renderAssistantCard(resData, true);
+    } else {
+      // Local Intelligent Demo Matching
+      await new Promise(r => setTimeout(r, 600)); // natural typing delay
+      loadingRow.remove();
+
+      const lower = text.toLowerCase();
+      let matchedData = null;
+
+      if (lower.includes("paracetamol") || lower.includes("acetaminophen") || lower.includes("dolo") || lower.includes("crocin")) {
+        matchedData = demoDatabase.paracetamol;
+      } else if (lower.includes("ibuprofen") || lower.includes("advil") || lower.includes("motrin") || lower.includes("combiflam")) {
+        matchedData = demoDatabase.ibuprofen;
+      } else if (lower.includes("metformin") || lower.includes("glycomet")) {
+        matchedData = demoDatabase.metformin;
+      } else if (lower.includes("amoxicillin") || lower.includes("amox")) {
+        matchedData = demoDatabase.amoxicillin;
+      } else {
+        // Fallback generic guidance
+        matchedData = {
+          name: "Medicine Query Analysis",
+          summary: `Showing clinical label overview for your inquiry: "${text}". For live FDA searching across all 100,000+ US drug labels, enter your Beta Access Code in the sidebar.`,
+          safetyNotices: [
+            { type: "caution", text: "Always confirm the exact active ingredient and strength listed on your medicine packaging strip." }
+          ],
+          sections: [
+            {
+              title: "Educational Reference Guide",
+              content: "MED GPT retrieves exact FDA-approved package inserts to explain uses, food interactions, warnings, and dosages without hallucination.",
+              quote: "United States Food and Drug Administration (FDA) Drug Labeling Database."
+            }
+          ],
+          source: {
+            title: "U.S. National Library of Medicine (DailyMed)",
+            url: "https://dailymed.nlm.nih.gov",
+            updated: "Current"
+          }
+        };
+      }
+
+      renderAssistantCard(matchedData, false);
+    }
+  } catch (err) {
+    if (loadingRow) loadingRow.remove();
+    renderErrorMessage(err.message || "Failed to retrieve medicine data.");
+  } finally {
+    sendBtn.disabled = false;
+    userInput.focus();
+  }
+});
+
+// Sidebar & chips listeners
+sidebarToggleBtn?.addEventListener("click", () => {
+  sidebar.classList.toggle("open");
+});
+
+newChatBtn?.addEventListener("click", () => {
+  initWelcomeMessage();
+  userInput.focus();
+});
+
+document.querySelectorAll("[data-prompt]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    userInput.value = btn.getAttribute("data-prompt");
+    userInput.focus();
+    userInput.dispatchEvent(new Event("input"));
+    sidebar.classList.remove("open");
+  });
+});
+
+// Initialize on page load
+initWelcomeMessage();

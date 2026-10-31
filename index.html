@@ -2,131 +2,114 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
     <meta
       name="description"
-      content="MED GPT turns a confirmed medicine ingredient into a clear, source-backed medicine summary."
+      content="MED GPT · Conversational AI Assistant for Medicine Information backed by FDA & DailyMed drug labels."
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="./assets/styles.css" />
-    <title>MED GPT · Medicine information, made clear</title>
+    <title>MED GPT · Conversational Medicine Assistant</title>
   </head>
   <body>
-    <div class="app-shell">
-      <header class="topbar">
-        <a class="brand" href="#top" aria-label="MED GPT home">
-          <span class="brand-mark" aria-hidden="true">M</span>
-          <span>MED GPT</span>
-        </a>
-        <span class="beta-label">Private beta</span>
-        <a class="quiet-link" href="#how-it-works">How it works</a>
-      </header>
-
-      <main id="top" class="sheet">
-        <section class="intro" aria-labelledby="page-title">
-          <div>
-            <p class="eyeline">Medicine information, made clear</p>
-            <h1 id="page-title">Start with the medicine on the strip.</h1>
-            <p class="intro-copy">
-              MED GPT turns a confirmed active ingredient into a structured, easy-to-read medicine
-              summary. It is educational information—not a diagnosis or a prescription.
-            </p>
+    <div class="chat-shell">
+      <!-- Sidebar / Drawer -->
+      <aside class="chat-sidebar" id="sidebar">
+        <div class="sidebar-header">
+          <div class="brand">
+            <span class="brand-mark">M</span>
+            <span class="brand-name">MED GPT</span>
           </div>
-          <aside class="emergency-note" aria-label="Urgent safety notice">
-            <strong>Get urgent help now</strong>
-            <span>for overdose, trouble breathing, seizures, fainting, or signs of a severe allergy.</span>
-          </aside>
-        </section>
+          <span class="beta-badge">Private Beta</span>
+        </div>
 
-        <section class="lookup-panel" aria-labelledby="lookup-title">
-          <div class="panel-heading">
-            <div>
-              <h2 id="lookup-title">Check a medicine</h2>
-              <p>Check the package details. This beta supports single-ingredient, immediate-release oral tablets and capsules.</p>
-            </div>
-            <button class="text-button" id="sample-button" type="button">View a sample</button>
+        <div class="sidebar-content">
+          <button type="button" class="new-chat-btn" id="new-chat-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            <span>New Chat</span>
+          </button>
+
+          <div class="sidebar-section">
+            <label class="sidebar-label" for="beta-code-input">Access Code (Optional for Demo)</label>
+            <input
+              type="password"
+              id="beta-code-input"
+              class="sidebar-input"
+              placeholder="Beta code for live API"
+              autocomplete="off"
+            />
+            <p class="sidebar-hint">Leave blank to test in rich interactive sample mode, or enter your code for live FDA label search.</p>
           </div>
 
-          <form id="lookup-form" novalidate>
-            <div class="form-grid">
-              <label>
-                Medicine or brand name
-                <input id="medicine-name" name="medicineName" autocomplete="off" placeholder="Example: Dolo 650" required />
-              </label>
-              <label>
-                Active ingredient
-                <input id="active-ingredient" name="activeIngredient" autocomplete="off" placeholder="Example: Paracetamol" required />
-              </label>
-              <label>
-                Strength
-                <input id="strength" name="strength" autocomplete="off" placeholder="Example: 500 mg" maxlength="120" required />
-              </label>
-              <label>
-                Dosage form
-                <select id="dosage-form" name="dosageForm" required>
-                  <option value="">Select form</option>
-                  <option>Tablet</option>
-                  <option>Capsule</option>
-                </select>
-              </label>
-              <label>
-                Beta access code
-                <input id="access-code" name="accessCode" type="password" autocomplete="off" maxlength="120" placeholder="Provided by MED GPT" required />
-              </label>
+          <div class="sidebar-section">
+            <h4 class="sidebar-heading">Sample Queries</h4>
+            <div class="sample-queries-list">
+              <button class="sample-chip" data-prompt="What is Paracetamol 650 mg used for, and can I take it with food?">Paracetamol 650 mg Uses & Food</button>
+              <button class="sample-chip" data-prompt="What are the side effects and precautions for Amoxicillin 500 mg?">Amoxicillin 500 mg Safety</button>
+              <button class="sample-chip" data-prompt="How does Metformin 500 mg tablet work in the body?">Metformin 500 mg Mechanism</button>
+              <button class="sample-chip" data-prompt="What is Cetirizine 10 mg dosage and does it cause drowsiness?">Cetirizine 10 mg Info</button>
             </div>
-            <label class="confirmation">
-              <input id="confirmed-ingredient" name="confirmedIngredient" type="checkbox" required />
-              <span>I checked the active ingredient and strength against the medicine strip/package.</span>
-            </label>
-            <p class="privacy-note">For this free-tier beta, enter package details only. Do not enter symptoms, names, photos, or other personal health information.</p>
-            <div class="form-footer">
-              <p id="form-message" class="form-message" role="status" aria-live="polite"></p>
-              <button class="primary-button" type="submit">Create medicine summary</button>
-            </div>
+          </div>
+
+          <div class="sidebar-disclaimer">
+            <strong>⚠️ Medical Disclaimer</strong>
+            <p>For educational reference only. Sourced from FDA/DailyMed drug labels. Always consult a healthcare professional for diagnosis or treatment.</p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main Chat Area -->
+      <main class="chat-main">
+        <!-- Top Banner -->
+        <header class="chat-topbar">
+          <button class="sidebar-toggle-btn" id="sidebar-toggle-btn" aria-label="Toggle Sidebar">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+          </button>
+          <div class="topbar-title-wrap">
+            <h1 class="topbar-title">MED GPT</h1>
+            <span class="topbar-subtitle">Source-backed Medicine Chatbot</span>
+          </div>
+          <div class="emergency-badge" title="For emergencies call emergency medical services immediately">
+            <span>Emergency? Call Emergency Care</span>
+          </div>
+        </header>
+
+        <!-- Message Feed -->
+        <div class="messages-container" id="messages-container">
+          <!-- Welcome message rendered dynamically -->
+        </div>
+
+        <!-- Chat Input Form -->
+        <div class="input-container-wrap">
+          <div class="input-chips-row" id="quick-chips">
+            <button class="chip" data-prompt="What are the side effects of Paracetamol 650mg?">Side effects of Paracetamol</button>
+            <button class="chip" data-prompt="Can I take Ibuprofen 400mg on an empty stomach?">Ibuprofen & Food</button>
+            <button class="chip" data-prompt="What is Metformin 500mg prescribed for?">Metformin Uses</button>
+          </div>
+          <form class="chat-input-form" id="chat-form">
+            <textarea
+              id="user-input"
+              rows="1"
+              placeholder="Ask about a medicine (e.g. 'What is Paracetamol 500mg used for and what are its side effects?')..."
+              required
+            ></textarea>
+            <button type="submit" id="send-btn" class="send-button" aria-label="Send message">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+              </svg>
+            </button>
           </form>
-        </section>
-
-        <section id="result-region" class="result-region" aria-live="polite" aria-label="Medicine summary">
-          <div class="empty-result" id="empty-result">
-            <h2>Your medicine summary will appear here.</h2>
-            <p>We will ask for clarification instead of guessing when a medicine name or ingredient is unclear.</p>
-          </div>
-          <article id="result-card" class="result-card" hidden>
-            <header class="result-header">
-              <div>
-                <p id="result-status" class="status-line"></p>
-                <h2 id="result-title"></h2>
-                <p id="result-subtitle" class="result-subtitle"></p>
-              </div>
-              <button class="text-button" id="new-search-button" type="button">New search</button>
-            </header>
-            <div id="safety-notices" class="notice-stack"></div>
-            <div id="result-sections" class="result-sections"></div>
-            <footer class="result-footer">
-              <p>This summary does not replace a doctor, pharmacist, package insert, or emergency care.</p>
-              <div id="result-sources" class="source-list"></div>
-            </footer>
-          </article>
-        </section>
-
-        <section id="how-it-works" class="process" aria-labelledby="process-title">
-          <div>
-            <h2 id="process-title">How MED GPT handles a request</h2>
-            <p>It does not diagnose illness, calculate personal doses, or silently guess brand composition.</p>
-          </div>
-          <ol>
-            <li><strong>Confirm</strong><span>Check the ingredient, strength, and dosage form on the package.</span></li>
-            <li><strong>Cross-check</strong><span>Retrieve current public drug-label facts for the confirmed ingredient.</span></li>
-            <li><strong>Explain</strong><span>Use AI to organize only supported facts in plain English.</span></li>
-          </ol>
-        </section>
+          <p class="input-disclaimer">MED GPT retrieves and organizes FDA package labels. It does not replace a doctor or pharmacist.</p>
+        </div>
       </main>
     </div>
+
     <script src="./assets/config.js"></script>
     <script src="./assets/app.js"></script>
   </body>
