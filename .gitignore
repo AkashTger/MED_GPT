@@ -1,0 +1,10 @@
+.wrangler/
+.dev.vars
+.env
+node_modules/
+dist/
+.taste-skill/inspect/
+*.log
+.dev.vars.*
+.env.*
+!.env.example

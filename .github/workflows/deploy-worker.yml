@@ -1,0 +1,40 @@
+name: Deploy Cloudflare API
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: worker-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test worker/test/*.test.mjs
+      - name: Verify required configuration
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ secrets.GEMINI_MODEL }}
+          BETA_ACCESS_CODES: ${{ secrets.BETA_ACCESS_CODES }}
+        run: node -e 'for (const key of ["CLOUDFLARE_API_TOKEN","CLOUDFLARE_ACCOUNT_ID","GEMINI_API_KEY","GEMINI_MODEL","BETA_ACCESS_CODES"]) if (!process.env[key]) throw new Error("Missing repository secret " + key);'
+      - name: Deploy Worker and attach its secrets
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: worker
+          command: deploy
+          secrets: |
+            GEMINI_API_KEY
+            GEMINI_MODEL
+            BETA_ACCESS_CODES
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ secrets.GEMINI_MODEL }}
+          BETA_ACCESS_CODES: ${{ secrets.BETA_ACCESS_CODES }}

@@ -1,0 +1,17 @@
+name = "med-gpt-api"
+main = "src/api.js"
+compatibility_date = "2026-10-30"
+
+# Before deploying, replace these values as described in README.md.
+[vars]
+ALLOWED_ORIGIN = "https://akashtger.github.io"
+MAX_LOOKUPS_PER_DAY = "10"
+MAX_GLOBAL_LOOKUPS_PER_DAY = "50"
+
+[[durable_objects.bindings]]
+name = "QUOTA"
+class_name = "Quota"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Quota"]
