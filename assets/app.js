@@ -143,7 +143,7 @@ function initWelcomeMessage() {
       <div class="bubble">
         <div class="bot-header">
           <span class="bot-title">MED GPT Assistant</span>
-          <span class="badge-source">FDA Label Grounded</span>
+          <span class="badge-source">Gemini structured overview</span>
         </div>
         <p class="bot-summary">
           Hello! I am your clinical medicine information assistant. Ask me questions about active ingredients, strengths, uses, food guidance, side effects, or precautions.
@@ -178,7 +178,7 @@ function appendLoadingMessage() {
         <div class="dot"></div>
         <div class="dot"></div>
         <div class="dot"></div>
-        <span style="font-size: 13px; color: var(--text-muted); margin-left: 8px;">Retrieving FDA drug labels & structuring clinical data...</span>
+        <span style="font-size: 13px; color: var(--text-muted); margin-left: 8px;">Creating a structured Gemini medicine overview...</span>
       </div>
     </div>
   `;
