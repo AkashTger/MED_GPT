@@ -5,7 +5,6 @@ const chatForm = document.querySelector("#chat-form");
 const userInput = document.querySelector("#user-input");
 const sendBtn = document.querySelector("#send-btn");
 const newChatBtn = document.querySelector("#new-chat-btn");
-const betaCodeInput = document.querySelector("#beta-code-input");
 const sidebar = document.querySelector("#sidebar");
 const sidebarToggleBtn = document.querySelector("#sidebar-toggle-btn");
 
@@ -283,7 +282,7 @@ function renderErrorMessage(text) {
         <strong>Error: </strong>${escapeHtml(text)}
       </div>
       <p style="font-size: 13px; color: var(--text-muted); margin-top: 8px;">
-        Tip: You can test any medicine in offline demo mode, or check that your beta access code is active.
+        Tip: Try again shortly. This public beta has a small daily usage limit.
       </p>
     </div>
   `;
@@ -331,15 +330,13 @@ chatForm.addEventListener("submit", async (e) => {
   const loadingRow = appendLoadingMessage();
 
   try {
-    const accessCode = betaCodeInput.value.trim();
     const apiUrl = config.apiBaseUrl ? config.apiBaseUrl.replace(/\/+$/, "") : "";
 
-    // If an API base is configured and user supplied access code or we want to hit the backend
-    if (apiUrl && accessCode) {
+    if (apiUrl) {
       const response = await fetch(`${apiUrl}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, accessCode })
+        body: JSON.stringify({ message: text })
       });
 
       loadingRow.remove();
@@ -383,7 +380,7 @@ chatForm.addEventListener("submit", async (e) => {
         // Fallback generic guidance
         matchedData = {
           name: "Medicine Query Analysis",
-          summary: `Showing clinical label overview for your inquiry: "${text}". For live FDA searching across all 100,000+ US drug labels, enter your Beta Access Code in the sidebar.`,
+          summary: `Showing clinical label overview for your inquiry: "${text}". Connect the live API to receive a Gemini educational overview.`,
           safetyNotices: [
             { type: "caution", text: "Always confirm the exact active ingredient and strength listed on your medicine packaging strip." }
           ],
