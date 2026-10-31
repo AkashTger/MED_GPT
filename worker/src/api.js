@@ -110,10 +110,10 @@ function limit(value, fallback) {
 }
 function invalidInput(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return true;
-  for (const key of ['medicineName', 'activeIngredient', 'strength', 'dosageForm', 'accessCode', 'message']) {
+  for (const key of ['medicineName', 'activeIngredient', 'strength', 'dosageForm', 'message']) {
     if (body[key] !== undefined && (typeof body[key] !== 'string' || body[key].length > 120 || /[\x00-\x1f]/.test(body[key]))) return true;
   }
-  return (!body.medicineName?.trim() && !body.message?.trim()) || !body.accessCode?.trim() ||
+  return (!body.medicineName?.trim() && !body.message?.trim()) ||
     (body.confirmedIngredient !== undefined && typeof body.confirmedIngredient !== 'boolean') ||
     (body.activeIngredient && !/^[a-zA-Z][a-zA-Z0-9 ()-]*$/.test(body.activeIngredient));
 }
@@ -131,7 +131,7 @@ export default {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers });
     if (request.method !== 'POST') return reply({ error: 'Use POST.' }, 405);
     if (!request.headers.get('Content-Type')?.startsWith('application/json')) return reply({ error: 'Use application/json.' }, 415);
-    if (!env.BETA_ACCESS_CODES || !env.GEMINI_API_KEY || !env.GEMINI_MODEL || !env.QUOTA) return reply({ error: 'The service is not configured yet.' }, 503);
+    if (!env.GEMINI_API_KEY || !env.GEMINI_MODEL || !env.QUOTA) return reply({ error: 'The service is not configured yet.' }, 503);
 
     try {
       const reader = request.body?.getReader();
@@ -148,9 +148,7 @@ export default {
       raw += decoder.decode();
       let body;
       try { body = JSON.parse(raw); } catch { return reply({ error: 'Invalid JSON.' }, 400); }
-      if (invalidInput(body)) return reply({ error: 'Enter valid medicine details and a beta access code.' }, 400);
-      const code = body.accessCode.trim();
-      if (!env.BETA_ACCESS_CODES.split(',').map(x => x.trim()).includes(code)) return reply({ error: 'Invalid beta access code.' }, 401);
+      if (invalidInput(body)) return reply({ error: 'Enter a valid medicine question.' }, 400);
 
       if (pathname === '/api/chat' && /overdose|swallowed (all|bottle)|suicide|kill myself|can't breathe|chest pain/i.test(body.message || '')) {
         return reply({ status: 'emergency', name: 'EMERGENCY MEDICAL NOTICE', summary: 'Seek immediate emergency clinical care or call emergency services.', sections: [], safetyNotices: [] });
@@ -160,13 +158,13 @@ export default {
         return reply({ status: 'needs_confirmation', message: 'Confirm the active ingredient, strength, and form from the package. For a brand name, ask a pharmacist if the ingredient is unclear.' });
       }
 
-      const quota = env.QUOTA.get(env.QUOTA.idFromName('beta-global'));
+      const quota = env.QUOTA.get(env.QUOTA.idFromName('public-global'));
       const quotaResponse = await quota.fetch('https://quota/consume', { method: 'POST', body: JSON.stringify({
-        code: await digest(code), ip: await digest(`${env.BETA_ACCESS_CODES}:${request.headers.get('CF-Connecting-IP') || 'unknown'}`),
+        ip: await digest(`${env.GEMINI_API_KEY}:${request.headers.get('CF-Connecting-IP') || 'unknown'}`),
         limit: limit(env.MAX_LOOKUPS_PER_DAY, 10), globalLimit: limit(env.MAX_GLOBAL_LOOKUPS_PER_DAY, 50),
       }) });
       if (!quotaResponse.ok) throw new Error('Quota unavailable');
-      if (!(await quotaResponse.json()).allowed) return reply({ error: 'Daily beta limit reached. Try again after midnight UTC.' }, 429);
+      if (!(await quotaResponse.json()).allowed) return reply({ error: 'Daily public limit reached. Try again after midnight UTC.' }, 429);
       if (pathname === '/api/chat') {
         const overview = await generateGeneralChatSummary(body.message.trim(), env);
         return reply({ status: 'general', name: overview.medicineName, summary: overview.summary, sections: overview.sections, safetyNotices: overview.safetyNotices });
