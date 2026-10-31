@@ -43,6 +43,23 @@ test('requires source quotes and preserves clinical text exactly', () => {
   assert.equal(validateEvidence({ sections: [{ ...section, id: 'precautions', field: 'warnings', quote: record.warnings[0], content: record.warnings[0] }] }, label), true);
 });
 
+test('chat gets a structured Gemini overview without a FDA label lookup', async () => {
+  const previous = globalThis.fetch;
+  globalThis.fetch = async url => {
+    assert.ok(String(url).includes('generativelanguage.googleapis.com'));
+    return Response.json({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify({
+      medicineName: 'Cetirizine', summary: 'General education only.', sections: [{ title: 'Overview', content: 'An antihistamine.' }],
+      safetyNotices: [{ severity: 'caution', message: 'Verify the package.' }],
+    }) }] } }] });
+  };
+  try {
+    const chat = new Request('https://api.example/api/chat', { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'What is cetirizine?', accessCode: 'test-code' }) });
+    const response = await worker.fetch(chat, environment());
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).status, 'general');
+  } finally { globalThis.fetch = previous; }
+});
+
 test('successful lookup uses isolated Gemini instructions and a record-specific source', async () => {
   const previous = globalThis.fetch;
   let calls = 0;
