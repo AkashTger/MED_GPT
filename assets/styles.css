@@ -418,7 +418,7 @@ body {
   gap: 6px;
 }
 
-.section-card p {
+.section-card p { white-space: pre-line; 
   font-size: 14px;
   color: #334155;
   line-height: 1.5;
