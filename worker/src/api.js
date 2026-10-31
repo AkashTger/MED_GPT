@@ -146,7 +146,7 @@ export default {
         return reply({ status: 'emergency', name: 'EMERGENCY MEDICAL NOTICE', summary: 'Seek immediate emergency clinical care or call emergency services.', sections: [], safetyNotices: [] });
       }
 
-      if (!body.activeIngredient?.trim() || !body.confirmedIngredient || !body.strength?.trim() || !body.dosageForm) {
+      if (pathname !== '/api/chat' && (!body.activeIngredient?.trim() || !body.confirmedIngredient || !body.strength?.trim() || !body.dosageForm)) {
         return reply({ status: 'needs_confirmation', message: 'Confirm the active ingredient, strength, and form from the package. For a brand name, ask a pharmacist if the ingredient is unclear.' });
       }
 
