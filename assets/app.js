@@ -253,6 +253,26 @@ function renderAssistantCard(data, isLive = false) {
   scrollToBottom();
 }
 
+function renderStatusMessage(title, text) {
+  const row = document.createElement("div");
+  row.className = "message-row assistant";
+  row.innerHTML = `
+    <div class="avatar">M</div>
+    <div class="bubble">
+      <div class="bot-header">
+        <span class="bot-title">${escapeHtml(title)}</span>
+        <span class="badge-source">Live API response</span>
+      </div>
+      <div class="notice-box caution">${escapeHtml(text)}</div>
+      <p style="font-size: 13px; color: var(--text-muted); margin-top: 8px;">
+        For a live label search, use the active ingredient, strength, and dosage form written on the package. MED GPT will not guess a brand composition.
+      </p>
+    </div>
+  `;
+  messagesContainer.appendChild(row);
+  scrollToBottom();
+}
+
 function renderErrorMessage(text) {
   const row = document.createElement("div");
   row.className = "message-row assistant";
@@ -330,7 +350,17 @@ chatForm.addEventListener("submit", async (e) => {
       }
 
       const resData = await response.json();
-      renderAssistantCard(resData, true);
+      if (resData.status === "source_backed") {
+        renderAssistantCard(resData, true);
+      } else if (resData.status === "needs_confirmation") {
+        renderStatusMessage("More package details needed", resData.message || "Confirm the active ingredient, strength, and dosage form on the package.");
+      } else if (resData.status === "unsupported") {
+        renderStatusMessage("This medicine is not supported", resData.message || "No matching supported label was found.");
+      } else if (resData.status === "emergency") {
+        renderStatusMessage("Emergency medical notice", resData.summary || "Seek immediate emergency clinical care or call emergency services.");
+      } else {
+        throw new Error("The service returned an unsupported response.");
+      }
     } else {
       // Local Intelligent Demo Matching
       await new Promise(r => setTimeout(r, 600)); // natural typing delay
