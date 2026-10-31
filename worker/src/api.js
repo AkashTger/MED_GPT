@@ -50,27 +50,37 @@ async function generateSummary(lookup, label, env) {
 }
 
 async function generateGeneralChatSummary(message, env) {
-  const result = await provider(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(env.GEMINI_MODEL)}:generateContent`, {
+  const requestSummary = async (withSchema) => provider(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(env.GEMINI_MODEL)}:generateContent`, {
     method: 'POST', headers: { 'x-goog-api-key': env.GEMINI_API_KEY, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: generalChatInstructions }] },
       contents: [{ role: 'user', parts: [{ text: message }] }],
-      generationConfig: { temperature: 0.2, responseMimeType: 'application/json', responseJsonSchema: generalChatSchema },
+      generationConfig: {
+        temperature: 0.2,
+        responseMimeType: 'application/json',
+        ...(withSchema ? { responseJsonSchema: generalChatSchema } : {}),
+      },
     }),
   });
-  const candidate = result?.candidates?.[0];
-  if (!candidate || candidate.finishReason !== 'STOP') throw new Error('Incomplete response');
-  const text = candidate.content?.parts?.filter(part => typeof part.text === 'string').map(part => part.text).join('');
-  const summary = JSON.parse(text || '');
-  if (!summary || typeof summary.medicineName !== 'string' || typeof summary.summary !== 'string' ||
-    !Array.isArray(summary.sections) || !Array.isArray(summary.safetyNotices) ||
-    summary.sections.some(section => !section || typeof section.title !== 'string' || typeof section.content !== 'string') ||
-    summary.safetyNotices.some(notice => !notice || !['caution', 'urgent'].includes(notice.severity) || typeof notice.message !== 'string')) {
-    throw new Error('Unsupported output');
+  const parseSummary = result => {
+    const candidate = result?.candidates?.[0];
+    if (!candidate || candidate.finishReason !== 'STOP') throw new Error('Incomplete response');
+    const text = candidate.content?.parts?.filter(part => typeof part.text === 'string').map(part => part.text).join('');
+    const summary = JSON.parse(text || '');
+    if (!summary || typeof summary.medicineName !== 'string' || typeof summary.summary !== 'string' ||
+      !Array.isArray(summary.sections) || !Array.isArray(summary.safetyNotices) ||
+      summary.sections.some(section => !section || typeof section.title !== 'string' || typeof section.content !== 'string') ||
+      summary.safetyNotices.some(notice => !notice || !['caution', 'urgent'].includes(notice.severity) || typeof notice.message !== 'string')) {
+      throw new Error('Unsupported output');
+    }
+    return summary;
+  };
+  try {
+    return parseSummary(await requestSummary(true));
+  } catch {
+    return parseSummary(await requestSummary(false));
   }
-  return summary;
 }
-
 async function labelFor(lookup) {
   const url = new URL('https://api.fda.gov/drug/label.json');
   url.searchParams.set('search', `openfda.generic_name.exact:"${normalize(lookup.activeIngredient)}"`);
@@ -181,7 +191,7 @@ export default {
         labelWarnings: Object.fromEntries(Object.entries(label.facts).filter(([key]) => fieldsBySection.precautions.includes(key))),
       });
     } catch {
-      return reply({ error: 'The source or AI service could not produce a supported answer. Please try again later.' }, 502);
+      return reply({ error: 'Gemini could not create a structured medicine overview right now. Please try again shortly.' }, 502);
     }
   },
 };
