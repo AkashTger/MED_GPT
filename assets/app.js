@@ -240,7 +240,7 @@ function renderAssistantCard(data, isLive = false) {
     <div class="bubble">
       <div class="bot-header">
         <span class="bot-title">${escapeHtml(data.name || data.medicine?.displayName || "Medicine Information")}</span>
-        <span class="${isLive ? 'badge-source' : 'badge-demo'}">${isLive ? 'Live FDA Label API' : 'Interactive Demo Preview'}</span>
+        <span class="${isLive === 'general' ? 'badge-source' : isLive ? 'badge-source' : 'badge-demo'}">${isLive === 'general' ? 'Gemini educational overview' : isLive ? 'Verified label response' : 'Interactive Demo Preview'}</span>
       </div>
       <p class="bot-summary">${escapeHtml(data.summary || data.medicine?.confidenceNote || "")}</p>
       ${safetyNoticesHtml}
@@ -350,7 +350,9 @@ chatForm.addEventListener("submit", async (e) => {
       }
 
       const resData = await response.json();
-      if (resData.status === "source_backed") {
+      if (resData.status === "general") {
+        renderAssistantCard(resData, "general");
+      } else if (resData.status === "source_backed") {
         renderAssistantCard(resData, true);
       } else if (resData.status === "needs_confirmation") {
         renderStatusMessage("More package details needed", resData.message || "Confirm the active ingredient, strength, and dosage form on the package.");
