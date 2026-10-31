@@ -3,7 +3,7 @@ export { Quota } from './quota.js';
 
 const lookupSchema = {
   type: 'object', additionalProperties: false, required: ['sections'], properties: {
-    sections: { type: 'array', minItems: 3, maxItems: 6, items: { type: 'object', additionalProperties: false,
+    sections: { type: 'array', items: { type: 'object', additionalProperties: false,
       required: ['id', 'title', 'content', 'field', 'quote'], properties: {
         id: { type: 'string', enum: Object.keys(fieldsBySection) }, title: { type: 'string' }, content: { type: 'string' },
         field: { type: 'string', enum: [...new Set(Object.values(fieldsBySection).flat())] }, quote: { type: 'string' },
@@ -18,7 +18,7 @@ const generalChatSchema = {
   properties: {
     medicineName: { type: 'string' },
     summary: { type: 'string' },
-    sections: { type: 'array', items: { type: 'object', additionalProperties: false,
+    sections: { type: 'array', minItems: 3, maxItems: 6, items: { type: 'object', additionalProperties: false,
       required: ['title', 'content'], properties: { title: { type: 'string' }, content: { type: 'string' } } } },
     safetyNotices: { type: 'array', minItems: 1, maxItems: 2, items: { type: 'object', additionalProperties: false,
       required: ['severity', 'message'], properties: { severity: { type: 'string', enum: ['caution', 'urgent'] }, message: { type: 'string' } } } },
