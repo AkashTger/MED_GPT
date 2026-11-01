@@ -7,6 +7,12 @@ const sendBtn = document.querySelector("#send-btn");
 const newChatBtn = document.querySelector("#new-chat-btn");
 const sidebar = document.querySelector("#sidebar");
 const sidebarToggleBtn = document.querySelector("#sidebar-toggle-btn");
+const attachmentInput = document.querySelector("#attachment-input");
+const attachmentPreview = document.querySelector("#attachment-preview");
+const allowedAttachmentTypes = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf", "text/plain"]);
+const maxAttachmentBytes = 4 * 1024 * 1024;
+let selectedAttachment = null;
+let selectedAttachmentUrl = "";
 
 // Mock knowledge base for instant rich demo responses when no API key/code is configured
 const demoDatabase = {
@@ -155,18 +161,70 @@ function initWelcomeMessage() {
   `;
 }
 
-function appendUserMessage(text) {
+function attachmentKind(file) {
+  if (!file) return "file";
+  if (file.type.startsWith("image/")) return "image";
+  if (file.type === "application/pdf") return "PDF";
+  return "text file";
+}
+
+function updateAttachmentPreview() {
+  if (!attachmentPreview) return;
+  if (!selectedAttachment) {
+    attachmentPreview.hidden = true;
+    attachmentPreview.innerHTML = "";
+    return;
+  }
+  const thumbnail = selectedAttachment.type.startsWith("image/") && selectedAttachmentUrl
+    ? `<img src="${escapeHtml(selectedAttachmentUrl)}" alt="Selected medicine image preview" />`
+    : `<span class="attachment-file-icon" aria-hidden="true">FILE</span>`;
+  attachmentPreview.hidden = false;
+  attachmentPreview.innerHTML = `
+    ${thumbnail}
+    <div class="attachment-preview-copy">
+      <strong>${escapeHtml(selectedAttachment.name)}</strong>
+      <span>${escapeHtml(attachmentKind(selectedAttachment))} · ${Math.ceil(selectedAttachment.size / 1024)} KB</span>
+    </div>
+    <button type="button" class="attachment-remove" id="attachment-remove" aria-label="Remove attachment">Remove</button>
+  `;
+  document.querySelector("#attachment-remove")?.addEventListener("click", clearAttachment);
+}
+
+function clearAttachment() {
+  if (selectedAttachmentUrl) URL.revokeObjectURL(selectedAttachmentUrl);
+  selectedAttachmentUrl = "";
+  selectedAttachment = null;
+  if (attachmentInput) attachmentInput.value = "";
+  updateAttachmentPreview();
+}
+
+function readAttachmentAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("The selected file could not be read."));
+    reader.onload = () => {
+      const value = String(reader.result || "");
+      const comma = value.indexOf(",");
+      resolve(comma >= 0 ? value.slice(comma + 1) : "");
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function appendUserMessage(text, attachment) {
   const row = document.createElement("div");
   row.className = "message-row user";
+  const message = text || `Attached ${attachmentKind(attachment)} for medicine information.`;
+  const attachmentHtml = attachment ? `<div class="message-attachment">${escapeHtml(attachment.name)} <span>· ${escapeHtml(attachmentKind(attachment))}</span></div>` : "";
   row.innerHTML = `
     <div class="avatar">You</div>
-    <div class="bubble">${escapeHtml(text)}</div>
+    <div class="bubble">${attachmentHtml}${escapeHtml(message)}</div>
   `;
   messagesContainer.appendChild(row);
   scrollToBottom();
 }
 
-function appendLoadingMessage() {
+function appendLoadingMessage(hasAttachment = false) {
   const row = document.createElement("div");
   row.className = "message-row assistant";
   row.id = "loading-message";
@@ -177,7 +235,7 @@ function appendLoadingMessage() {
         <div class="dot"></div>
         <div class="dot"></div>
         <div class="dot"></div>
-        <span style="font-size: 13px; color: var(--text-muted); margin-left: 8px;">Creating a structured Gemini medicine overview...</span>
+        <span style="font-size: 13px; color: var(--text-muted); margin-left: 8px;">${hasAttachment ? "Reviewing your attachment and creating a structured overview..." : "Creating a structured Gemini medicine overview..."}</span>
       </div>
     </div>
   `;
@@ -320,27 +378,35 @@ userInput.addEventListener("keydown", (e) => {
 chatForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const text = userInput.value.trim();
-  if (!text) return;
+  const attachment = selectedAttachment;
+  if (!text && !attachment) return;
 
   userInput.value = "";
   userInput.style.height = "auto";
-  appendUserMessage(text);
+  appendUserMessage(text, attachment);
   sendBtn.disabled = true;
+  if (attachmentInput) attachmentInput.disabled = true;
+  clearAttachment();
 
-  const loadingRow = appendLoadingMessage();
+  const loadingRow = appendLoadingMessage(Boolean(attachment));
 
   try {
     const apiUrl = config.apiBaseUrl ? config.apiBaseUrl.replace(/\/+$/, "") : "";
+    const message = text || "Please identify and explain the medicine shown in the attached file. State clearly if the medicine name, strength, or formulation cannot be read.";
+    const attachmentPayload = attachment ? {
+      name: attachment.name,
+      mimeType: attachment.type,
+      data: await readAttachmentAsBase64(attachment),
+    } : undefined;
 
     if (apiUrl) {
       const response = await fetch(`${apiUrl}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text })
+        body: JSON.stringify({ message, ...(attachmentPayload ? { attachment: attachmentPayload } : {}) })
       });
 
       loadingRow.remove();
-
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
         throw new Error(err.error || `Server returned ${response.status}`);
@@ -361,44 +427,19 @@ chatForm.addEventListener("submit", async (e) => {
         throw new Error("The service returned an unsupported response.");
       }
     } else {
-      // Local Intelligent Demo Matching
-      await new Promise(r => setTimeout(r, 600)); // natural typing delay
+      await new Promise(resolve => setTimeout(resolve, 600));
       loadingRow.remove();
-
-      const lower = text.toLowerCase();
-      let matchedData = null;
-
-      if (lower.includes("paracetamol") || lower.includes("acetaminophen") || lower.includes("dolo") || lower.includes("crocin")) {
-        matchedData = demoDatabase.paracetamol;
-      } else if (lower.includes("ibuprofen") || lower.includes("advil") || lower.includes("motrin") || lower.includes("combiflam")) {
-        matchedData = demoDatabase.ibuprofen;
-      } else if (lower.includes("metformin") || lower.includes("glycomet")) {
-        matchedData = demoDatabase.metformin;
-      } else if (lower.includes("amoxicillin") || lower.includes("amox")) {
-        matchedData = demoDatabase.amoxicillin;
-      } else {
-        // Fallback generic guidance
-        matchedData = {
-          name: "Medicine Query Analysis",
-          summary: `Showing clinical label overview for your inquiry: "${text}". Connect the live API to receive a Gemini educational overview.`,
-          safetyNotices: [
-            { type: "caution", text: "Always confirm the exact active ingredient and strength listed on your medicine packaging strip." }
-          ],
-          sections: [
-            {
-              title: "Educational Reference Guide",
-              content: "MED GPT retrieves exact FDA-approved package inserts to explain uses, food interactions, warnings, and dosages without hallucination.",
-              quote: "United States Food and Drug Administration (FDA) Drug Labeling Database."
-            }
-          ],
-          source: {
-            title: "U.S. National Library of Medicine (DailyMed)",
-            url: "https://dailymed.nlm.nih.gov",
-            updated: "Current"
-          }
-        };
-      }
-
+      const lower = message.toLowerCase();
+      const matchedData = lower.includes("paracetamol") || lower.includes("acetaminophen") || lower.includes("dolo") || lower.includes("crocin") ? demoDatabase.paracetamol
+        : lower.includes("ibuprofen") || lower.includes("advil") || lower.includes("motrin") || lower.includes("combiflam") ? demoDatabase.ibuprofen
+        : lower.includes("metformin") || lower.includes("glycomet") ? demoDatabase.metformin
+        : lower.includes("amoxicillin") || lower.includes("amox") ? demoDatabase.amoxicillin
+        : {
+            name: "Medicine attachment received",
+            summary: "Connect the live Gemini API to analyze an image or document. Always verify the active ingredient and strength on the package.",
+            safetyNotices: [{ type: "caution", text: "A photo or document may be unclear. Confirm the medicine details with the packaging or a pharmacist." }],
+            sections: [{ title: "Educational reference", content: "The live service can read a clear medicine photo, PDF, or text file and structure general medicine information." }]
+          };
       renderAssistantCard(matchedData, false);
     }
   } catch (err) {
@@ -406,9 +447,25 @@ chatForm.addEventListener("submit", async (e) => {
     renderErrorMessage(err.message || "Failed to retrieve medicine data.");
   } finally {
     sendBtn.disabled = false;
+    if (attachmentInput) attachmentInput.disabled = false;
     userInput.focus();
   }
 });
+
+attachmentInput?.addEventListener("change", () => {
+  const file = attachmentInput.files?.[0];
+  if (!file) return;
+  if (!allowedAttachmentTypes.has(file.type) || file.size > maxAttachmentBytes) {
+    clearAttachment();
+    renderErrorMessage("Attach a JPG, PNG, WebP image, PDF, or text file up to 4 MB.");
+    return;
+  }
+  if (selectedAttachmentUrl) URL.revokeObjectURL(selectedAttachmentUrl);
+  selectedAttachment = file;
+  selectedAttachmentUrl = file.type.startsWith("image/") ? URL.createObjectURL(file) : "";
+  updateAttachmentPreview();
+});
+attachmentInput?.addEventListener("click", () => { attachmentInput.value = ""; });
 
 // Sidebar & chips listeners
 sidebarToggleBtn?.addEventListener("click", () => {
@@ -416,6 +473,7 @@ sidebarToggleBtn?.addEventListener("click", () => {
 });
 
 newChatBtn?.addEventListener("click", () => {
+  clearAttachment();
   initWelcomeMessage();
   userInput.focus();
 });
