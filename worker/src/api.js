@@ -183,7 +183,8 @@ export default {
       if (!quotaResponse.ok) throw new Error('Quota unavailable');
       if (!(await quotaResponse.json()).allowed) return reply({ error: 'Daily public limit reached. Try again after midnight UTC.' }, 429);
       if (pathname === '/api/chat') {
-        const overview = await generateGeneralChatSummary(body.message.trim(), env);
+        const message = body.message?.trim() || 'Explain the medicine in the attached file. If the name, strength, or formulation is unreadable, ask for a clearer image or package details.';
+        const overview = await generateGeneralChatSummary(message, env, body.attachment || null);
         return reply({ status: 'general', name: overview.medicineName, summary: overview.summary, sections: overview.sections, safetyNotices: overview.safetyNotices });
       }
 
