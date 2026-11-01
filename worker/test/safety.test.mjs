@@ -102,8 +102,9 @@ test('refusal, truncated response, malformed JSON and unsupported claims fail cl
 test('unconfigured, oversized and query injection requests do not reach providers', async () => {
   assert.equal((await worker.fetch(request(), {})).status, 403);
   assert.equal((await worker.fetch(request(), { ALLOWED_ORIGIN: origin })).status, 503);
-  assert.equal((await worker.fetch(request({ ...lookup, medicineName: 'a'.repeat(5000) }), environment())).status, 413);
+  assert.equal((await worker.fetch(request({ ...lookup, medicineName: 'a'.repeat(5000) }), environment())).status, 400);
   assert.equal((await worker.fetch(request({ ...lookup, activeIngredient: 'x" OR *' }), environment())).status, 400);
+  assert.equal((await worker.fetch(request({ ...lookup, medicineName: 'a'.repeat(7 * 1024 * 1024) }), environment())).status, 413);
 });
 test('quota refusal prevents source and AI calls', async () => {
   const env = environment();
@@ -122,4 +123,54 @@ test('transactional quota enforces code, IP and global caps', async () => {
   assert.equal(concurrent.filter(Boolean).length, 2);
   assert.equal(await consume('two'), true);
   assert.equal(await consume('three'), false);
+});
+
+
+test('chat forwards image, PDF and text attachments with an optional question', async () => {
+  const previous = globalThis.fetch;
+  try {
+    for (const mimeType of ['image/png', 'application/pdf', 'text/plain']) {
+      let calls = 0;
+      const attachment = { name: 'medicine-file', mimeType, data: Buffer.from('sample attachment').toString('base64') };
+      globalThis.fetch = async (url, options) => {
+        calls++;
+        assert.ok(String(url).includes('generativelanguage.googleapis.com'));
+        const payload = JSON.parse(options.body);
+        assert.deepEqual(payload.contents[0].parts[1], { inlineData: { mimeType, data: attachment.data } });
+        assert.ok(payload.contents[0].parts[0].text.length > 0);
+        return Response.json({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify({
+          medicineName: 'Package details needed', summary: 'Please confirm the package.',
+          sections: [], safetyNotices: [{ severity: 'caution', message: 'Verify the package.' }],
+        }) }] } }] });
+      };
+      const chat = new Request('https://api.example/api/chat', {
+        method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ attachment, ...(mimeType === 'text/plain' ? { message: 'Explain this medicine' } : {}) }),
+      });
+      const response = await worker.fetch(chat, environment());
+      assert.equal(response.status, 200);
+      assert.equal((await response.json()).status, 'general');
+      assert.equal(calls, 1);
+    }
+  } finally { globalThis.fetch = previous; }
+});
+
+test('invalid attachments are rejected before quota or provider calls', async () => {
+  const previous = globalThis.fetch;
+  const env = environment();
+  env.QUOTA.get = () => { throw new Error('Quota must not be called'); };
+  globalThis.fetch = () => { throw new Error('Provider must not be called'); };
+  try {
+    for (const attachment of [
+      { name: 'file.exe', mimeType: 'application/octet-stream', data: 'YQ==' },
+      { name: 'medicine.png', mimeType: 'image/png', data: 'not-base64!' },
+      { name: 'medicine.pdf', mimeType: 'application/pdf', data: 'A'.repeat(5592408) },
+    ]) {
+      const chat = new Request('https://api.example/api/chat', {
+        method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: 'Explain this medicine', attachment }),
+      });
+      assert.equal((await worker.fetch(chat, env)).status, 400);
+    }
+  } finally { globalThis.fetch = previous; }
 });
